@@ -4,7 +4,9 @@ from spade.behaviour import FSMBehaviour, State
 from spade.message import Message
 from chatterbot import ChatBot
 from chatterbot.trainers import ChatterBotCorpusTrainer
-import time, re, os
+from chatterbot.comparisons import LevenshteinDistance
+from chatterbot.response_selection import get_first_response 
+import time, re
 import xml.etree.ElementTree as ET
 
 
@@ -18,12 +20,12 @@ class ChatBotAgent(Agent):
     database_file = 'ChatDB.sqlite3'             
     brainAddress = "ufcbrain@xmpp.jp"
 
-    async def send_message(self, to, msg, _metadata=""):
+    async def send_message(self, to, msg, _metadata="", _ontology=""):
         msg = Message(
             to=to,
             body=msg,
             metadata={
-                "ontology": "predvidi",
+                "ontology": _ontology,
                 "content" : _metadata,
                 "languge": "english"
             })
@@ -46,43 +48,59 @@ class ChatBotAgent(Agent):
 
     class ChatBehaviour(FSMBehaviour):
         async def on_start(self):
-            # Create a ChatterBot instance
             self.chatbot = ChatBot("UFC Chatbot",
                 storage_adapter='chatterbot.storage.SQLStorageAdapter',
                 logic_adapter=['chatterbot.logic.LogicAdapter','chatterbot.logic.BestMatch'],
                 database_uri=f'sqlite:///{self.agent.database_file}')
             
-             # Create a new chat bot
+           
             self.chatbot_names = ChatBot('NameClassifier',
                 storage_adapter='chatterbot.storage.SQLStorageAdapter',
                 logic_adapter=['chatterbot.logic.LogicAdapter'],
                 database_uri=f'sqlite:///{self.agent.database_file}')
             
+          
+            self.chatbot_intent = ChatBot('intentClassifier',
+                storage_adapter='chatterbot.storage.SQLStorageAdapter',
+                logic_adapters=[
+                    {
+                        "import_path": "chatterbot.logic.BestMatch",
+                        "statement_comparison_function": LevenshteinDistance,
+                        "response_selection_method": get_first_response
+                    }
+                ],
+                database_uri=f'sqlite:///{self.agent.database_file}')
             
-            #trainer = ChatterBotCorpusTrainer(self.chatbot)
-            #trainer.train("chatterbot.corpus.english.conversations",
-            #            "./ufc.yml")
-            #trainer_names = ChatterBotCorpusTrainer(self.chatbot_names)
-            #trainer_names.train("./names.yml")
+            # trainer = ChatterBotCorpusTrainer(self.chatbot)
+            # trainer.train("chatterbot.corpus.english.conversations", "./ufc.yml")
+            # trainer_names = ChatterBotCorpusTrainer(self.chatbot_names)
+            # trainer_names.train("./names.yml")
+            # trainer_names = ChatterBotCorpusTrainer(self.chatbot_intent)
+            # trainer_names.train("./ufc_intent.yml")
 
     class Primi(State):
         async def run(self):
+            self.set_next_state("Primi")
             msg = await self.receive(timeout=5)
             print("Slušam poruke")
             try:
                 if (msg is not None) and (msg.body is not None):
-                    self.agent.fsm.msg = msg
-                    response = self.agent.fsm.chatbot.get_response(msg.body)
-                    if ("predict" in msg.body.lower()) or ("vs" in msg.body.lower()):
-                        if ("predicti" in response.text.lower()) and ("vs" in response.text.lower()) and ("yes" in response.text.lower()):
-                            self.set_next_state("Predvidi")
+                    if msg.metadata['otology'] == "odgovor":
+                        _sender = msg.metadata['sender']
+                        response = msg.metadata['winner']
+                        sender = _sender.localpart + "@" + _sender.domain
+                        await self.agent.send_message(sender, response)
                     else:
-                        sender = msg._sender.localpart + "@" + msg._sender.domain
-                        await self.agent.send_message(sender, response.text)
-                else: 
-                    self.set_next_state("Primi")
-            except:
-                print("Error")
+                        self.agent.fsm.msg = msg
+                        response = self.agent.fsm.chatbot.get_response(msg.body)
+                        intent = self.agent.fsm.chatbot.get_response(msg.body)
+                        if (intent == "fights.next") or (intent == "fights.outcom"):
+                            self.set_next_state("Predvidi")
+                        else:
+                            sender = msg._sender.localpart + "@" + msg._sender.domain
+                            await self.agent.send_message(sender, response.text)
+            except Exception as ex:
+                print("Error:" + str(ex))
     
     class Odgovori(State):
         async def run(self):
@@ -106,17 +124,28 @@ class ChatBotAgent(Agent):
 
     class Predvidi(State):
         async def run(self): 
-            # Extract the words before and after "vs"
-            fighters = re.search(r"(\w+)\s+vs\s+(\w+)", self.agent.msg)
-            fighter_a = fighters.group(1)
-            fighter_b = fighters.group(2)
-            print("a:"+fighter_a + " " + "b:"+fighter_b)
+            msg = self.agent.fsm.msg
+            # Check and extract the words before and after "vs"
+            fighters = re.search(r"(\w+)\s+vs\s+(\w+)", msg)
+            if fighters is not None:
+                fighter_a = fighters.group(1)
+                fighter_b = fighters.group(2)
+                print("a:"+fighter_a + " " + "b:"+fighter_b)
             
-            a = self.agent.classify_human_name(fighter_a)
-            b = self.agent.classify_human_name(fighter_b)
-            if a == True and b == True:
-                metadata= { "borac_a" : self.agent.fighter_b, "borac_b": self.agent.fighter_b }
-                self.agent.send_message(metadata)
+                a = self.agent.classify_human_name(fighter_a)
+                b = self.agent.classify_human_name(fighter_b)
+                if (a == True) and (b == True):
+                    metadata= { 
+                        "fighterA" : self.agent.fighter_b, 
+                        "fighterB": self.agent.fighter_b,
+                        "user": msg.sender 
+                    }
+                    sender = self.agent.brainAddress
+                    self.agent.send_message(sender, "Predict fight", metadata, "predvidi")
+            else:
+                sender = msg._sender.localpart + "@" + msg._sender.domain
+                await self.agent.send_message(sender, "Format: Predict Conor vs Mark")
+            
             self.set_next_state("Primi")
 
     async def setup(self):

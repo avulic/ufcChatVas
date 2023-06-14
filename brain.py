@@ -6,27 +6,28 @@ from spade.template import Template
 import time
 from  model import *
 
-modelTrained = False
 
-class PredictorAgent(Agent):            
+class PredictorAgent(Agent):    
+    modelTrained = False
+    file_name_fighters = './fighters.csv'
+    file_name = './data_edited.csv'
+    mreza = None
+
     class PredictorBehaviour(FSMBehaviour):
         async def on_start(self):
-            print("Pokrecem se")
-            file_name = './data_edited.csv'
             [trainData, testData ] = LoadData(file_name)
-            self.trainData = trainData
+            trainData = trainData
             input_size = trainData.columns()
             output_size = 2
+            self.agent.mreza = Network(input_size, output_size)
 
-            self.mreza = Network(input_size, output_size)
-        
         async def on_end(self):
             pass
 
     class Predvidi(State):
         async def run(self):
             #provjeri model
-            if not modelTrained:
+            if not self.agent.modelTrained:
                 self.set_next_state("Treniraj")
 
             # Load the trained model
@@ -47,16 +48,21 @@ class PredictorAgent(Agent):
             
     class Primi(State):
         async def run(self):
+            self.set_next_state("Primi")
             msg = await self.receive(timeout=5)
-            print("Primam poruke:" )
+            print("Slušam poruke")
             try:
-                if (msg is None) or (msg.body is None):
-                    self.set_next_state("Primi")
-                else:
-                    print("Validna:" + msg.body )
+                if (msg is not None) and (msg.body is not None):
                     #izvudi konteks
+                    self.agnet.fighter_a = msg.metadata["content"]["fighterA"]
+                    self.agent.fighter_b = msg.metadata["content"]["fighterB"]
+                    #provjeri dali borci postoje i dali su u istim kategorijamaa
+                    
                     #prebaci se us stanje predviđanja
-                    self.set_next_state("Predvidi")
+                    if self.agent.modelTrained:
+                        self.set_next_state("Predvidi")
+                    else:
+                        self.set_next_state("Treniraj")
             except TypeError: 
                 print("Error")
                 self.set_next_state("Primi")
@@ -78,8 +84,8 @@ class PredictorAgent(Agent):
         chat_behaviour = self.PredictorBehaviour()
         self.fsm = chat_behaviour
 
-        chat_behaviour.add_state(name="Primi", state=self.Primi())
         chat_behaviour.add_state(name="Treniraj", state=self.Treniraj(), initial=True)
+        chat_behaviour.add_state(name="Primi", state=self.Primi())
         chat_behaviour.add_state(name="Predvidi", state=self.Predvidi())
 
         chat_behaviour.add_transition(source="Primi", dest="Primi")

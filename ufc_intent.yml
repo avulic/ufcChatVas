@@ -1,0 +1,56 @@
+categories:
+- ufc
+- fights
+- fights.next
+- fights.outcom
+conversations:
+- - Who will win the next fight?
+  - fights.next
+- - Predict the winner of the upcoming fight.
+  - fights.next
+- - Who is fighting next in the UFC?
+  - fights.next
+- - Can you tell me the outcome of the last UFC fight?
+  - fights.outcome
+- - Who won the previous fight?
+  - fights.outcome
+- - What was the result of the recent UFC match?
+  - fights.outcom
+- - Which fighter is expected to win the next UFC bout?
+  - fights.next
+- - Can you predict the outcome of the upcoming UFC fight?
+  - fights.next
+- - Who is likely to emerge victorious in the next UFC contest?
+  - fights.next
+- - Please forecast the winner of the next UFC match.
+  - fights.next
+- - Tell me your prediction for the winner of the next UFC fight.
+  - fights.next
+- - What are the chances of winning for the fighters in the next UFC bout?
+  - fights.next
+- - I'm curious about the expected result of the next UFC fight.
+  - fights.next
+- - Could you provide insights on the expected winner of the next UFC match?
+  - fights.next
+- - Give me your analysis on the potential winner of the next UFC bout.
+  - fights.next
+- - Who emerged victorious in the last UFC encounter?
+  - fights.outcome
+- - Can you share the outcome of the most recent UFC fight?
+  - fights.outcome
+- - What was the result of the previous UFC match?
+  - fights.outcome
+- - Tell me the winner of the last UFC bout.
+  - fights.outcome
+- - Who came out on top in the recent UFC contest?
+  - fights.outcome
+- - Which fighter secured victory in the previous UFC fight?
+  - fights.outcome
+- - Provide me with the outcome of the last UFC match.
+  - fights.outcome
+- - Who claimed victory in the most recent UFC bout?
+  - fights.outcome
+- - What was the final result of the previous UFC encounter?
+  - fights.outcome
+- - Share with me the winner of the recent UFC match.
+  - fights.outcome
