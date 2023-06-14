@@ -5,13 +5,25 @@ from spade.message import Message
 from spade.template import Template
 import time
 from  model import *
-
+import pandas as pd
 
 class PredictorAgent(Agent):    
     modelTrained = False
     file_name_fighters = './fighters.csv'
     file_name = './data_edited.csv'
-    mreza = None
+    #mreza = None
+
+    async def send_message(self, to, msg, _metadata="", _ontology=""):
+        msg = Message(
+            to=to,
+            body=msg,
+            metadata={
+                "ontology": _ontology,
+                "content" : _metadata,
+                "languge": "english"
+            })
+        await self.fsm.send(msg)
+        print("Posiljatelj: Poruka je poslana!" + to)
 
     class PredictorBehaviour(FSMBehaviour):
         async def on_start(self):
@@ -20,6 +32,7 @@ class PredictorAgent(Agent):
             input_size = trainData.columns()
             output_size = 2
             self.agent.mreza = Network(input_size, output_size)
+            self.agent.fighters = pd.read_csv("fighters.csv")
 
         async def on_end(self):
             pass
@@ -29,23 +42,24 @@ class PredictorAgent(Agent):
             #provjeri model
             if not self.agent.modelTrained:
                 self.set_next_state("Treniraj")
+            else:
+                try:
+                    model_path = "./models"
+                    if self.agent.fsm.mreza != None:
+                        LoadModel(self.agent.fsm.mreza, model_path)
 
-            # Load the trained model
-            model_path = "./models"
-            if self.agent.fsm.mreza != None:
-                LoadModel(self.agent.fsm.mreza, model_path)
-
-            # Example prediction
-            example_input = torch.tensor([[1.0, 2.0, 3.0, 4.0]], dtype=torch.float32)
-            predicted_label = predict(self.agent.fsm.mreza, example_input)
-            print("Predicted Label:", predicted_label.item())
-            
-            # Send the prediction result back to the chat bot agent
-            reply = Message(to="chatbot_agent@localhost")
-            reply.body = predicted_label.item()
-            await self.send(reply)
-            self.set_next_state("Primi")
-            
+                    # Example prediction
+                    example_input = torch.tensor([[1.0, 2.0, 3.0, 4.0]], dtype=torch.float32)
+                    predicted_label = predict(self.agent.fsm.mreza, example_input)
+                    print("Predicted Label:", predicted_label.item())
+                    
+                    # Send the prediction result back to the chat bot agent
+                    reply = Message(to="chatbot_agent@localhost")
+                    reply.body = predicted_label.item()
+                    await self.send(reply)
+                    self.set_next_state("Primi")
+                except FileNotFoundError:
+                    print("Error loading model")
     class Primi(State):
         async def run(self):
             self.set_next_state("Primi")
@@ -57,12 +71,12 @@ class PredictorAgent(Agent):
                     self.agnet.fighter_a = msg.metadata["content"]["fighterA"]
                     self.agent.fighter_b = msg.metadata["content"]["fighterB"]
                     #provjeri dali borci postoje i dali su u istim kategorijamaa
-                    
-                    #prebaci se us stanje predviđanja
-                    if self.agent.modelTrained:
+                    if (fighter_a in self.agent.fighters) and (fighter_b in self.agent.fighters):
+                        #prebaci se us stanje predviđanja
                         self.set_next_state("Predvidi")
                     else:
-                        self.set_next_state("Treniraj")
+                        sender = msg.metadata["user"]
+                        await self.agent.send_message(sender, "Fighteras are not in UFC", "", "predvidi")
             except TypeError: 
                 print("Error")
                 self.set_next_state("Primi")
@@ -75,7 +89,7 @@ class PredictorAgent(Agent):
             modelTrained = train_model(self.agent.fsm.mreza, self.agent.fsm.trainData)
             if not modelTrained:
                 modelTrained = train_model(self.agent.fsm.mreza, self.agent.fsm.trainData)
-            self.set_next_state("Primi")
+            self.set_next_state("Predvidi")
 
     class Dohvati_podatke(State):
         pass
