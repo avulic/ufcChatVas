@@ -33,6 +33,7 @@ class PredictorAgent(Agent):
             output_size = 2
             self.agent.mreza = Network(input_size, output_size)
             self.agent.fighters = pd.read_csv("fighters.csv")
+            self.agent.fighters_mean = pd.read_csv("fighters_means.csv")
 
         async def on_end(self):
             pass
@@ -48,8 +49,8 @@ class PredictorAgent(Agent):
                     if self.agent.fsm.mreza != None:
                         LoadModel(self.agent.fsm.mreza, model_path)
 
-                    # Example prediction
-                    example_input = torch.tensor([[1.0, 2.0, 3.0, 4.0]], dtype=torch.float32)
+                
+                    input = torch.tensor([[1.0, 2.0, 3.0, 4.0]], dtype=torch.float32)
                     predicted_label = predict(self.agent.fsm.mreza, example_input)
                     print("Predicted Label:", predicted_label.item())
                     
@@ -60,6 +61,7 @@ class PredictorAgent(Agent):
                     self.set_next_state("Primi")
                 except FileNotFoundError:
                     print("Error loading model")
+    
     class Primi(State):
         async def run(self):
             self.set_next_state("Primi")
@@ -68,10 +70,10 @@ class PredictorAgent(Agent):
             try:
                 if (msg is not None) and (msg.body is not None):
                     #izvudi konteks
-                    self.agnet.fighter_a = msg.metadata["content"]["fighterA"]
+                    self.agent.fighter_a = msg.metadata["content"]["fighterA"]
                     self.agent.fighter_b = msg.metadata["content"]["fighterB"]
                     #provjeri dali borci postoje i dali su u istim kategorijamaa
-                    if (fighter_a in self.agent.fighters) and (fighter_b in self.agent.fighters):
+                    if (self.agent.fighter_a in self.agent.fighters) and (self.agent.fighter_b in self.agent.fighters):
                         #prebaci se us stanje predviđanja
                         self.set_next_state("Predvidi")
                     else:
