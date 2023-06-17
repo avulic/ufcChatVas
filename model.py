@@ -57,8 +57,8 @@ class Network(nn.Module):
 def LoadData(file_name):
     price_df=pd.read_csv(file_name)
     #columns = 884
-    x=price_df.iloc[:,0:len(price_df.columns)-1].values
-    y=price_df.iloc[:,len(price_df.columns)-1].values 
+    x = price_df.drop(price_df.columns[-1], axis=1, inplace=True).values
+    y = price_df.iloc[:, -1:].values 
     X_train, X_test, Y_train, Y_test = train_test_split( x, y, test_size=0.30, random_state=42 )
     testData = Data(X_test, Y_test)
     trainData = Data(X_train, Y_train)
