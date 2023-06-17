@@ -31,17 +31,6 @@ class Data(Dataset):
         return self.len
     def columns(self):
         return self.X.shape[1]
-
-class Subset(Dataset):
-    def __init__(self, dataset, indices):
-        self.dataset = dataset
-        self.indices = indices
-    
-    def __getitem__(self, index):
-        return self.dataset[self.indices[index]]
-    
-    def __len__(self):
-        return len(self.indices)
     
 class Network(nn.Module):
     def __init__(self, input_size, output_size):
@@ -78,6 +67,11 @@ def LoadData(file_name):
 
 def LoadModel(clf, model_path):
     clf.load_state_dict(torch.load(model_path))
+    print("Neural Network Predictor Agent: Model loaded successfully")
+
+def LoadModel(clf, early_stopping):
+    best_model_weights = early_stopping.get_best_model_weights()
+    clf.load_state_dict(best_model_weights)
     print("Neural Network Predictor Agent: Model loaded successfully")
 
 class EarlyStopping:
@@ -232,15 +226,14 @@ def train_model(model, train_data, plot=False):
         print(f'Average: {sum/len(results.items())} %')
 
         print("Neural Network Predictor Agent: Model trained successfully")
+        LoadModel(model, early_stopping)
+        
         if plot:
-            best_model_weights = early_stopping.get_best_model_weights()
-            model.load_state_dict(best_model_weights)
-
             plot_confusion_matrix(all_targets, all_predictions)
             # Plot ROC curve
             plot_roc_curve(all_targets, all_probabilities)
-    except:
-        print("Error in training")
+    except Exception as e:
+        print("Error in training: " + str(e))
         return False
     return True
 
