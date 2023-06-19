@@ -37,26 +37,19 @@ class Network(nn.Module):
         super(Network, self).__init__()
         model_path = "./models"
         file_name = './data_edited.csv'
-        # number of features (len of X cols)
         input_dim = input_size
-        # number of hidden layers
-        #hidden_layers = hidden_size
-        # number of classes (unique of y)
         output_dim = output_size
-        self.linear1 = nn.Linear(input_dim, 256)  # First fully connected layer
-        self.linear2 = nn.Linear(256, 64)  # Second fully connected layer
-        #self.linear3 = nn.Linear(128, 64)   # Third fully connected layer
-        self.linear4 = nn.Linear(64, output_dim)     # Final output layer with 2 classes
+        self.linear1 = nn.Linear(input_dim, 256)  
+        self.linear2 = nn.Linear(256, 64)  
+        self.linear4 = nn.Linear(64, output_dim)     
     def forward(self, x):
         x = torch.sigmoid(self.linear1(x))
         x = torch.sigmoid(self.linear2(x))
-        #x = torch.sigmoid(self.linear3(x))
         x = self.linear4(x)
         return x
 
 def LoadData(file_name):
     price_df=pd.read_csv(file_name)
-    #columns = 884
     x = price_df.drop(price_df.columns[-1], axis=1, inplace=True).values
     y = price_df.iloc[:, -1:].values 
     X_train, X_test, Y_train, Y_test = train_test_split( x, y, test_size=0.30, random_state=42 )
@@ -100,7 +93,6 @@ class EarlyStopping:
         return self.best_model_weights
 
 def train_model(model, train_data, plot=False):
-    #train_loader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=2)
     criterion = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
     early_stopping = EarlyStopping(patience=patience)
@@ -120,11 +112,9 @@ def train_model(model, train_data, plot=False):
             #print(f'FOLD {fold}')
             #print('--------------------------------')
             
-            # Sample elements randomly from a given list of ids, no replacement.
             train_subsampler = SubsetRandomSampler(train_ids)
             test_subsampler = SubsetRandomSampler(test_ids)
             
-            # Define data loaders for training and testing data in this fold
             trainloader = DataLoader(
                             train_data, 
                             batch_size=batch_size, sampler=train_subsampler)
@@ -132,46 +122,28 @@ def train_model(model, train_data, plot=False):
                             train_data,
                             batch_size=batch_size, sampler=test_subsampler)
             
-            # Init the neural network
             network = model       
-            # Initialize optimizer
             optimizer = optimizer
             
             # Run the training loop for defined number of epochs
             for epoch in range(0, num_epochs):
-                # Print epoch
-                #print(f'Starting epoch {epoch+1}')
-                # Set current loss value
                 current_loss = 0.0
-                
                 # Training phase
                 model.train()
-                # Iterate over the DataLoader for training data
-                for i, data in enumerate(trainloader, 0):                
-                    # Get inputs
-                    inputs, targets = data 
 
-                    # Zero the gradients
+                for i, data in enumerate(trainloader, 0):                
+                    inputs, targets = data 
                     optimizer.zero_grad()                
-                    # Perform forward pass
-                    outputs = network(inputs)                
-                    # Compute loss
+                    outputs = network(inputs)                   
                     loss = criterion(outputs, targets.long())
-                    # Perform backward pass
                     loss.backward()                
-                    # Perform optimization
                     optimizer.step()                
-                    # Print statistics
                     current_loss += loss.item()
                     if i % 500 == 499:
                         #print('Loss after mini-batch %5d: %.3f' %(i + 1, current_loss / 500))
                         current_loss = 0.0
-            # Process is complete.
-            #print('Training process has finished. Saving trained model.')
 
-            # Print about testing
             #print('Starting testing')
-            # Saving the model
             save_path = f'./models/model-fold-{fold}.pth'
             torch.save(network.state_dict(), save_path)
 
@@ -181,17 +153,12 @@ def train_model(model, train_data, plot=False):
             with torch.no_grad():
                 # Iterate over the test data and generate predictions
                 for i, data in enumerate(testloader, 0):
-                    # Get inputs
                     inputs, targets = data
-                    # Generate outputs
                     outputs = network(inputs)
-                    # Set total and correct
                     _, predicted = torch.max(outputs.data, 1)
                     total += targets.size(0)
                     correct += (predicted == targets).sum().item()
-                    # Compute loss
                     loss = criterion(outputs, targets.long())
-                    # Accumulate loss
                     val_loss += loss.item()
 
                     all_targets.extend(targets.numpy())
@@ -202,9 +169,7 @@ def train_model(model, train_data, plot=False):
                     all_probabilities.extend(probabilities[:, 1].numpy())
 
                 accuracy = 100 * correct / total   
-                # Calculate average validation loss
                 val_loss /= len(testloader)
-                # Call early_stopping
                 early_stopping(val_loss, model)
 
                 # Print accuracy
@@ -216,7 +181,6 @@ def train_model(model, train_data, plot=False):
                     #print("Early stopping")
                     break
         
-        # Print fold results
         print(f'K-FOLD CROSS VALIDATION RESULTS FOR {num_folds} FOLDS')
         print('--------------------------------')
         sum = 0.0

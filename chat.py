@@ -33,19 +33,14 @@ class ChatBotAgent(Agent):
         await self.fsm.send(msg)
         print("Posiljatelj: Poruka je poslana!" + to)
 
-    def classify_human_name(self, response):
-        bot_response = self.fsm.chatbot_names.get_response(response)
+    # def classify_human_name(self, response):
+    #     bot_response = self.fsm.chatbot_names.get_response(response)
 
-        contains_human_name = False
-        words = bot_response.text.split()
-        if (("yes" in words) or ("is" in words)) and (("no" not in words) and ("not" not in words)):
-            contains_human_name = True
-        #for word in words:
-        #    if contains_human_name and word.isinit():
-        #        human_name = word
-        #        break
-
-        return contains_human_name
+    #     contains_human_name = False
+    #     words = bot_response.text.split()
+    #     if (("yes" in words) or ("is" in words)) and (("no" not in words) and ("not" not in words)):
+    #         contains_human_name = True
+    #     return contains_human_name
 
     class ChatBehaviour(FSMBehaviour):
         async def on_start(self):

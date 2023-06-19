@@ -65,7 +65,6 @@ class PredictorAgent(Agent):
                     predicted_label = predict(self.agent.mreza, input)
                     print("Predicted Label:", predicted_label.item())
                     
-                    # Send the prediction result back to the chat bot agent
 
                     self.set_next_state("Primi")
                 except Exception as e:
@@ -94,9 +93,6 @@ class PredictorAgent(Agent):
                 print("Error")
                 self.set_next_state("Primi")
 
-    class Odgovori(State):
-        pass
-
     class Treniraj(State):
         async def run(self):
             try:
@@ -108,9 +104,6 @@ class PredictorAgent(Agent):
             except TypeError: 
                 print("Error")
                 self.set_next_state("Primi")
-
-    class Dohvati_podatke(State):
-        pass
 
     async def setup(self):
         chat_behaviour = self.PredictorBehaviour()
