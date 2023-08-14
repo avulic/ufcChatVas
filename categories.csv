@@ -1,10 +1,10 @@
 Category,Sex,lbs,kg
-Strawweight,W,115,52.2 
-Flyweight,M W,125,56.7
-Bantamweight,M W,135,61.2
-Featherweight,M W,145,65.8
-Lightweight,M W,155,70.3
-Welterweight,M,170,77.1 
-Middleweight,M,185,83.9 
+Strawweight,W,115,52.0
+Flyweight,M W,125,56.0
+Bantamweight,M W,135,61.0
+Featherweight,M W,145,65.0
+Lightweight,M W,155,70.0
+Welterweight,M,170,77.0 
+Middleweight,M,185,84.0
 Light Heavyweight,M,205,93.0 
 Heavyweight,M,0,93.0 
