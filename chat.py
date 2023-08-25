@@ -1,4 +1,4 @@
-from spade import quit_spade
+import spade
 from spade.agent import Agent
 from spade.behaviour import FSMBehaviour, State
 from spade.message import Message
@@ -6,10 +6,10 @@ from chatterbot import ChatBot
 from chatterbot.trainers import ChatterBotCorpusTrainer
 from chatterbot.comparisons import LevenshteinDistance
 from chatterbot.response_selection import get_first_response 
-import time, re, json
+import time, re, json, os
 import xml.etree.ElementTree as ET
-
-
+import asyncio
+import uuid
 
 
 #ufcchat@xmpp.jp
@@ -20,6 +20,8 @@ class ChatBotAgent(Agent):
     database_file = 'ChatDB.sqlite3'     
     database_intent = 'IntentDB.sqlite3'           
     brainAddress = "ufcbrain@xmpp.jp"
+    
+    pending_requests = {} 
 
     async def send_message(self, to, msg, _metadata={}, _ontology=""):
         msg = Message(
@@ -33,57 +35,73 @@ class ChatBotAgent(Agent):
         await self.fsm.send(msg)
         print("Posiljatelj: Poruka je poslana!" + to)
 
-    # def classify_human_name(self, response):
-    #     bot_response = self.fsm.chatbot_names.get_response(response)
+    
+    def check_files_exist(self):
+        if os.path.exists('DB/'+self.database_file) and os.path.exists('DB/'+self.database_intent):
+            return True
+        else:
+            return False
 
-    #     contains_human_name = False
-    #     words = bot_response.text.split()
-    #     if (("yes" in words) or ("is" in words)) and (("no" not in words) and ("not" not in words)):
-    #         contains_human_name = True
-    #     return contains_human_name
+    def saveRequest(self, sender, fighterA, fighterB):
+        request_id = str(uuid.uuid4())  # Unique identifier for the request
 
+        content = { 
+            "request_id":request_id,
+            "fighterA" : fighterA.lower(), 
+            "fighterB": fighterB.lower(),
+        }
+
+        self.pending_requests[request_id] = {
+            "user_message": content,
+            "sender": sender ,
+        }
+        
+        return self.pending_requests.get(request_id, None)["user_message"]
+    
     class ChatBehaviour(FSMBehaviour):
         async def on_start(self):
             self.chatbot = ChatBot("UFC Chatbot",
                 storage_adapter='chatterbot.storage.SQLStorageAdapter',
                 logic_adapter=['chatterbot.logic.LogicAdapter','chatterbot.logic.BestMatch'],
-                database_uri=f'sqlite:///{self.agent.database_file}')
-            
-           
+                database_uri=f'sqlite:///DB/{self.agent.database_file}')
+
             self.chatbot_names = ChatBot('NameClassifier',
                 storage_adapter='chatterbot.storage.SQLStorageAdapter',
                 logic_adapter=['chatterbot.logic.LogicAdapter'],
-                database_uri=f'sqlite:///{self.agent.database_file}')
-            
-          
+                database_uri=f'sqlite:///DB/{self.agent.database_file}')
+
             self.chatbot_intent = ChatBot('intentClassifier',
                 storage_adapter='chatterbot.storage.SQLStorageAdapter',
                 logic_adapter=['chatterbot.logic.LogicAdapter'],
-                database_uri=f'sqlite:///{self.agent.database_intent}')
+                database_uri=f'sqlite:///DB/{self.agent.database_intent}')
+
             
             trainer = ChatterBotCorpusTrainer(self.chatbot)
-            trainer.train("chatterbot.corpus.english.conversations", "./ufc.yml")
+            trainer.train("chatterbot.corpus.english.conversations", "./DB/ufc.yml")
             trainer_names = ChatterBotCorpusTrainer(self.chatbot_names)
-            trainer_names.train("./names.yml")
+            trainer_names.train("./DB/names.yml")
             trainer_intent = ChatterBotCorpusTrainer(self.chatbot_intent)
-            trainer_intent.train("./ufc_intent.yml")
+            trainer_intent.train("./DB/ufc_intent.yml")
 
     class Primi(State):
         async def run(self):
             self.set_next_state("Primi")
             msg = await self.receive(timeout=5)
-            print("Slušam poruke")
+            print("Slušam poruke ")
             try:
                 if (msg is not None) and (msg.body is not None):
-                    if (len(msg.metadata) != 0) and (msg.metadata['otology'] == "odgovor"):
-                        _sender = msg.metadata['sender']
-                        response = msg.metadata['winner']
-                        sender = _sender.localpart + "@" + _sender.domain
-                        await self.agent.send_message(sender, response)
+                    print("Poruka primljena: " + msg.body)
+
+                    if (len(msg.metadata) != 0) and (msg.metadata['ontology'] == "odgovor"):
+                        request_id = json.loads(msg.metadata['content'])["request_id"]
+                        sender = self.agent.pending_requests.pop(request_id, None)["sender"]
+                        message = msg.body
+
+                        await self.agent.send_message(sender, message)
                     else:
                         self.agent.fsm.msg = msg
                         intent = self.agent.fsm.chatbot_intent.get_response(msg.body)
-                        if (intent.text == "fights.next") or (intent.text == "fights.outcom"):
+                        if intent.text == "fights.outcome":
                             self.set_next_state("Predvidi")
                         else:
                             response = self.agent.fsm.chatbot.get_response(msg.body)
@@ -91,45 +109,38 @@ class ChatBotAgent(Agent):
                             await self.agent.send_message(sender, response.text)
             except Exception as ex:
                 print("Error:" + str(ex))
-    
+
     class Odgovori(State):
         async def run(self):
-            msg = await self.receive(timeout=10)
-            if msg:
-                response = self.chatbot.get_response(msg.body)
-                if "predict" in response.text.lower() and "vs" in response.text.lower():
-                    fighters = response.text.lower().split("vs")
-                    fighter_a = fighters[0].strip()
-                    fighter_b = fighters[1].strip()
+            pass
+            # msg = await self.receive(timeout=10)
+            # if msg:
+            #     response = self.chatbot.get_response(msg.body)
+            #     if "predict" in response.text.lower() and "vs" in response.text.lower():
+            #         fighters = response.text.lower().split("vs")
+            #         fighter_a = fighters[0].strip()
+            #         fighter_b = fighters[1].strip()
 
-                    to = self.agent.brainAddress
-                    msg = f"Predict {fighter_a} vs {fighter_b}"
-                    await self.send_message(to, msg)
-                    self.agent.fighter_a = fighter_a
-                    self.agent.fighter_b = fighter_b
-                    self.set_next_state("Predvidi")
-                else:
-                    reply = Message(to=msg.sender, body=response.text)
-                    await self.send(reply)
+            #         self.agent.fighter_a = fighter_a
+            #         self.agent.fighter_b = fighter_b
+            #         self.set_next_state("Predvidi")
+            #     else:
+            #         await self.agent.send_message(msg.sender, response.text, "", "")
+
 
     class Predvidi(State):
         async def run(self): 
             msg = self.agent.fsm.msg
             # Check and extract the words before and after "vs"
             fighters = re.search(r"(\w+)\s+vs\s+(\w+)", msg.body)
+            sender =  msg.sender[0]+ "@" + msg.sender[1]  
             if fighters is not None:
                 fighter_a = fighters.group(1)
                 fighter_b = fighters.group(2)
-            
-                content= { 
-                    "fighterA" : fighter_a.lower(), 
-                    "fighterB": fighter_b.lower(),
-                    "user": msg.sender[0]+ "@" + msg.sender[1]  
-                }
-                sender = self.agent.brainAddress
-                await self.agent.send_message(sender, "Predict fight", content, "predvidi")
+                reqContent = self.agent.saveRequest(sender, fighter_a, fighter_b)
+
+                await self.agent.send_message(self.agent.brainAddress, "Predict fight", reqContent, "predvidi")
             else:
-                sender = msg._sender.localpart + "@" + msg._sender.domain
                 await self.agent.send_message(sender, "Format: Predict Conor vs Mark")
             
             self.set_next_state("Primi")
@@ -150,15 +161,26 @@ class ChatBotAgent(Agent):
         
         self.add_behaviour(chat_behaviour)
 
-chatbot_agent = ChatBotAgent("ufcchat@xmpp.jp", "12345678")
-future = chatbot_agent.start()
-future.result()
 
-while chatbot_agent.is_alive():
-    try:    
-        time.sleep(1)
-    except KeyboardInterrupt:
-        print("Zaustavljam agenta...")
-        chatbot_agent.stop()
-        quit_spade()
+
+
+async def main():
+    print("Pokrecem")
+    chatbot_agent = ChatBotAgent("ufcchat@xmpp.jp", "12345678")
+    await chatbot_agent.start()
+    
+
+    while not chatbot_agent.fsm.is_killed():
+        try:    
+            await asyncio.sleep(1)
+        except KeyboardInterrupt:
+            print("Zaustavljam agenta")
+            
+            assert chatbot_agent.fsm.exit_code == 10
+            await chatbot_agent.stop()
+
+if __name__ == "__main__":
+    spade.run(main())
+
+
 

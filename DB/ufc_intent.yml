@@ -1,0 +1,42 @@
+categories:
+- fights.next
+- fights.outcome
+
+conversations:
+- - Can you predict a fight between
+  - fights.next
+- - Predict fight [Fighter A] and [Fighter B]?
+  - fights.outcome
+- - Who do you think will win the upcoming fight between [Fighter A] and [Fighter B]?
+  - fights.outcome
+- - I'm curious about your prediction for the bout between [Fighter A] and [Fighter B]. Who do you think will come out on top?
+  - fights.outcome
+- - Predict the outcome of the fight featuring [Fighter A] versus [Fighter B].
+  - fights.outcome
+- - The fight between [Fighter A] and [Fighter B] is highly anticipated. Who is your pick to win?
+  - fights.outcome
+- - What's your prediction for the fight between Conor McGregor and Jose Aldo?
+  - fights.outcome
+- - Can you predict the outcome of the match between Conor McGregor and Jose Aldo?
+  - fights.outcome
+- - Who do you think will win in a fight between Khabib Nurmagomedov and Tony Ferguson?
+  - fights.outcome
+- - I'm curious about your thoughts on the potential outcome of the bout featuring Jon Jones and Francis Ngannou. Who do you think will come out on top?
+  - fights.outcome
+- - What's your prediction for the upcoming match between Israel Adesanya and Robert Whittaker?
+  - fights.outcome
+- - Can you tell me your forecast for the fight involving Amanda Nunes and Valentina Shevchenko?
+  - fights.outcome
+- - Who is favored to win in a match between Dustin Poirier and Conor McGregor?
+  - fights.outcome
+- - I'm eager to know your opinion on the winner of the fight between Stipe Miocic and Francis Ngannou. Who's your pick?
+  - fights.outcome
+- - Predict the outcome of the bout featuring Jorge Masvidal and Nate Diaz.
+  - fights.outcome
+- - Who do you think has the edge in the match between Alexander Volkanovski and Max Holloway?
+  - fights.outcome
+- - Can you provide insights on the winner of the upcoming fight between Jan Błachowicz and Glover Teixeira?
+  - fights.outcome
+- - Tell me your prediction for the bout between Rose Namajunas and Weili Zhang.
+  - fights.outcome
+
