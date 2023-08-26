@@ -18,7 +18,7 @@ learning_rate = 0.15
 batch_size = 2
 model_path = "./models/models"
 #file_name = './data/data_edited.csv'
-file_name = './data/data_edited.csv'
+file_name = './data/.csv'
 
 def reset_weights(m):
   '''
@@ -32,6 +32,9 @@ def reset_weights(m):
 
 class Data(Dataset):
     def __init__(self, X_train, y_train):
+        scaler = MinMaxScaler(feature_range=(-1, 1))
+        X_train = scaler.fit_transform(X_train)
+    
         self.X=torch.tensor(X_train,dtype=torch.float32)
         self.y=torch.tensor(y_train,dtype=torch.float32)
         self.len = self.X.shape[0]
@@ -47,16 +50,16 @@ class Network(nn.Module):
     def __init__(self, input_size, output_size):
         super(Network, self).__init__()
         model_path = "./models/models"
-
-        self.linear1 = nn.Linear(input_size, 400)  
-        self.linear2 = nn.Linear(400, 200)  
-        self.linear3 = nn.Linear(200, 100)
-        self.linear4 = nn.Linear(100, output_size)    
+        file_name = './data/data_edited.csv'
+        input_dim = input_size
+        output_dim = output_size
+        self.linear1 = nn.Linear(input_dim, 256)  
+        self.linear2 = nn.Linear(256, 64)  
+        self.linear4 = nn.Linear(64, output_dim)     
     def forward(self, x):
-        x = torch.relu(self.linear1(x))
-        x = torch.relu(self.linear2(x))
-        x = torch.relu(self.linear3(x))
-        x = self.linear4(x)
+        x = torch.sigmoid(self.linear1(x))
+        x = torch.sigmoid(self.linear2(x))
+        x = torch.sigmoid(self.linear4(x))
         return x
 
 def LoadData(file_name):
@@ -65,9 +68,6 @@ def LoadData(file_name):
     y = price_df["Winner"].values 
     X_train, X_test, Y_train, Y_test = train_test_split( x, y, test_size=0.20, random_state=42 )
 
-    scaler = MinMaxScaler()
-    X_train = scaler.fit_transform(X_train)
-    X_test = scaler.transform(X_test)
 
     testData = Data(X_test, Y_test)
     trainData = Data(X_train, Y_train)
@@ -146,19 +146,14 @@ def train_model(model, train_data, plot=False):
                 #print('Starting epoch:'+str(epoch))
                 for i, data in enumerate(trainloader, 0):                
                     inputs, targets = data 
+
                     optimizer.zero_grad()                
-                    outputs = network(inputs)
-
-                    outputs = outputs.squeeze(dim=1)
-                    targets = targets.float()
-
-                    # Ensure outputs and targets have the same shape
-                    outputs = outputs.view(-1, 1)  # Shape: (batch_size, 1)
-                    targets = targets.view(-1, 1)  # Shape: (batch_size, 1)
-
-                    loss = criterion(outputs, targets)
+                    outputs = network(inputs)  
+                                     
+                    loss = criterion(outputs.view(-1), targets)
                     loss.backward()                
-                    optimizer.step()                
+                    optimizer.step()   
+
                     current_loss += loss.item()
                     epoch_train_loss += loss.item()
                     if i % 500 == 499:
@@ -177,16 +172,15 @@ def train_model(model, train_data, plot=False):
                 with torch.no_grad():
                     for i, data in enumerate(testloader, 0):
                         inputs, targets = data
-                        targets = targets.unsqueeze(1).float()
+                        targets = targets.float()
                         outputs = network(inputs)
 
-                        outputs = outputs.squeeze(dim=1)
-                        targets = targets.squeeze(dim=1)
+                        _, predicted = torch.max(outputs.data, 1)
 
-                        predicted = (outputs.data > 0.5).float()
                         total += targets.size(0)
                         correct += (predicted == targets).sum().item()
-                        loss = criterion(outputs, targets.float())
+
+                        loss = criterion(outputs.view(-1), targets)
                         val_loss += loss.item()
 
                     accuracy = 100 * correct / total   
@@ -196,13 +190,13 @@ def train_model(model, train_data, plot=False):
                 
                     early_stopping(val_loss, model)
 
-                    #print('Accuracy for fold %d: %d %%' % (fold, accuracy))
-                    #print('--------------------------------')
+                    print('Accuracy for fold %d: %d %%' % (fold, accuracy))
+                    print('--------------------------------')
                     results[fold] = 100.0 * (correct / total)
                             
-                    # if early_stopping.early_stop:
-                    #     print("Early stopping")
-                    #     break
+                    if early_stopping.early_stop:
+                        print("Early stopping")
+                        break
         
     
         print(f'K-FOLD CROSS VALIDATION RESULTS FOR {num_folds} FOLDS')
@@ -286,22 +280,19 @@ def test_model(model, test_data):
             inputs, targets = data
             outputs = model(inputs)
 
-            outputs = outputs.squeeze(dim=1)
-            targets = targets.unsqueeze(1).float()
+            _, predicted = torch.max(outputs.data, 1)
 
-            probabilities = torch.sigmoid(outputs)
-            predicted = (probabilities.data > 0.5).float()
             test_total += targets.size(0)
             test_correct += (predicted == targets).sum().item()
 
+            probabilities = torch.sigmoid(outputs)
+
+            
             all_test_targets.extend(targets.numpy())
             all_test_predictions.extend(predicted.numpy())
-
-            # Append probabilities for ROC curve
             all_test_probabilities.extend(probabilities.squeeze().numpy())
 
-            # Calculate and store the test loss
-            loss = criterion(outputs, targets.unsqueeze(1).float())
+            loss = criterion(outputs.view(-1), targets)
             test_losses.append(loss.item())
 
     test_accuracy = 100 * test_correct / test_total
